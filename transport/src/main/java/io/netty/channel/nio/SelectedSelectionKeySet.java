@@ -30,6 +30,9 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
         keys = new SelectionKey[1024];
     }
 
+    /**
+     * 这个add方法是被SelectorImpl的实现类中调用
+     */
     @Override
     public boolean add(SelectionKey o) {
         if (o == null) {

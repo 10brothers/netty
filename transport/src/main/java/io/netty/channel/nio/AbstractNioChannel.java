@@ -377,7 +377,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
-                selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
+                // 这个时候仅仅是将channel注册到Selector上，还未指定感兴趣到事件。将自己就作为attr传过去
+                // javaChannel子类重写，返回JDK的NIO Channel 对象  EventLoop中的Selector来自于创建时从Group传过来的
+               selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
                 if (!selected) {
@@ -402,6 +404,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     @Override
     protected void doBeginRead() throws Exception {
         // Channel.read() or ChannelHandlerContext.read() was called
+        // 调用channel read或者 channelHandlerContext.read时，会来调用此方法，用于向新注册到selector的channel指定感兴趣的读写事件。
         final SelectionKey selectionKey = this.selectionKey;
         if (!selectionKey.isValid()) {
             return;
@@ -411,6 +414,11 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
+            System.out.printf("%s --> channel[%s] AbstractNioChannel#doBeginRead中 新增监听%s事件 \n",Thread.currentThread(),this,
+                    (readInterestOp == SelectionKey.OP_ACCEPT)  ? "accept" :
+                    (readInterestOp == SelectionKey.OP_READ)  ? "read":
+                    (readInterestOp == SelectionKey.OP_WRITE)  ? "write" :
+                    (readInterestOp == SelectionKey.OP_CONNECT)  ?"connect":"unknown");
             selectionKey.interestOps(interestOps | readInterestOp);
         }
     }

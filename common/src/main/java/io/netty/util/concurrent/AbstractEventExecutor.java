@@ -161,7 +161,9 @@ public abstract class AbstractEventExecutor extends AbstractExecutorService impl
      */
     protected static void safeExecute(Runnable task) {
         try {
+            System.out.printf("%s --> 执行task\n", Thread.currentThread());
             task.run();
+            System.out.printf("%s --> task执行结束 \n", Thread.currentThread());
         } catch (Throwable t) {
             logger.warn("A task raised an exception. Task: {}", task, t);
         }

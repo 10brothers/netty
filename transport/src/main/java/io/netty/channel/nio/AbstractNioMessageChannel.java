@@ -61,6 +61,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
 
     private final class NioMessageUnsafe extends AbstractNioUnsafe {
 
+        // 这里面其实是存放的是各个不同协议实现方式下的socket表示。tcp就是SocketChannel udp是DataPacket sctp就是sctpChannel
         private final List<Object> readBuf = new ArrayList<Object>();
 
         @Override
@@ -84,20 +85,24 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                             closed = true;
                             break;
                         }
-
+                        // 读了多少了
                         allocHandle.incMessagesRead(localRead);
-                    } while (continueReading(allocHandle));
+                    } while (continueReading(allocHandle)); // 是否还继续读，读完了或者没读完但是读的此数够了，也不读了
                 } catch (Throwable t) {
                     exception = t;
                 }
 
                 int size = readBuf.size();
+                System.out.printf("%s --> [start] 针对每个准备好的数据对象，开始触发pipeline的channelRead方法 \n",Thread.currentThread());
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
+                System.out.printf("%s --> [ end ] 针对每个准备好的数据对象，开始触发pipeline的channelRead方法 \n",Thread.currentThread());
+
                 readBuf.clear();
                 allocHandle.readComplete();
+                System.out.printf("%s --> 触发读完成操作 channelReadComplete \n", Thread.currentThread());
                 pipeline.fireChannelReadComplete();
 
                 if (exception != null) {

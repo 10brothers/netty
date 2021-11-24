@@ -95,7 +95,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         voidPromise =  new VoidChannelPromise(channel, true);
 
         tail = new TailContext(this);
-        head = new HeadContext(this);
+        head = new HeadContext(this); // HeadContext中有bind方法调用Channel#unsafe()#bind方法做绑定地址
 
         head.next = tail;
         tail.prev = head;
@@ -200,16 +200,18 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         final AbstractChannelHandlerContext newCtx;
         synchronized (this) {
             checkMultiplicity(handler);
-
+            // 将ChannelHandler包装成ChannelHandlerContext，ChannelPipeline中的链是ChannelHandlerContext链
             newCtx = newContext(group, filterName(name, handler), handler);
-
+            // 把上面的cxt对象添加到链尾的前面一个位置
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
+            // 此Pipeline关联的Channel还没注册到Selector时，加进来的handler如果实现了handlerAdd方法暂时先不执行
+            // 而是包装成一个PendingHandlerCallback链，在Channel注册到Selector后执行
             if (!registered) {
-                newCtx.setAddPending();
+                newCtx.setAddPending(); // 将ChannelHandlerContext的状态handlerState改成pending
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
@@ -647,6 +649,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             firstRegistration = false;
             // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
             // that were added before the registration was done.
+            System.out.printf("%s --> 调用注册前添加进来的所有handler的handlerAdded方法 \n",Thread.currentThread());
             callHandlerAddedForAllHandlers();
         }
     }
@@ -1109,7 +1112,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         // This must happen outside of the synchronized(...) block as otherwise handlerAdded(...) may be called while
         // holding the lock and so produce a deadlock if handlerAdded(...) will try to add another handler from outside
-        // the EventLoop.
+        // the EventLoop.  把已经加进来的
         PendingHandlerCallback task = pendingHandlerCallbackHead;
         while (task != null) {
             task.execute();
@@ -1117,6 +1120,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 使用一个链表，将channel还没注册时添加的handler包装成PendingHandlerCallBack 。
+     * 在Channel注册到Selector后开始执行
+     */
     private void callHandlerCallbackLater(AbstractChannelHandlerContext ctx, boolean added) {
         assert !registered;
 
@@ -1331,7 +1338,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         @Override
         public void bind(
                 ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) {
+            System.out.printf("%s --> [start] HeadContext 通过unsafe[%s]调用bind \n", Thread.currentThread(),unsafe);
             unsafe.bind(localAddress, promise);
+            System.out.printf("%s --> [ end ] HeadContext 通过unsafe[%s]调用bind \n", Thread.currentThread(),unsafe);
         }
 
         @Override
@@ -1395,9 +1404,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
+            System.out.printf("%s --> [start] HeadContext 开始执行所有ChannelHandler#channelActive 并尝试注册感兴趣事件 \n", Thread.currentThread());
             ctx.fireChannelActive();
-
             readIfIsAutoRead();
+            System.out.printf("%s --> [ end ] HeadContext 结束执行所有ChannelHandler#channelActive 以及注册感兴趣事件 \n", Thread.currentThread());
         }
 
         @Override
@@ -1419,7 +1429,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         private void readIfIsAutoRead() {
             if (channel.config().isAutoRead()) {
+                System.out.printf("%s --> 激活channel后，channel配置的是自动读，注册一个感兴趣的事件，ServerSocketChannel的accept事件和SocketChannel的read事件一般在这里注册 \n", Thread.currentThread());
                 channel.read();
+            } else {
+                System.out.printf("%s --> 激活channel后，channel配置的是非自动读，此时需要在别处有动作可以注册其他感兴趣的事件，否则不会对连接上来的客户端请求做出任何响应 \n", Thread.currentThread());
             }
         }
 

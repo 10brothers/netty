@@ -82,6 +82,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             boolean success = false;
             try {
                 children[i] = newChild(executor, args);
+                System.out.printf("%s --> 初始化第[%d]个EventLoop[%s] \n",Thread.currentThread(),i,children[i]);
                 success = true;
             } catch (Exception e) {
                 // TODO: Think about if this is a good exception type
@@ -109,7 +110,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         }
 
         chooser = chooserFactory.newChooser(children);
-
+        System.out.printf("%s --> 选中的EventExecutorChooser[%s] \n",Thread.currentThread(),chooser);
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {
             @Override
             public void operationComplete(Future<Object> future) throws Exception {

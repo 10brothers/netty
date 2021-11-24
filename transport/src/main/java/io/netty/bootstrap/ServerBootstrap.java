@@ -147,7 +147,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
-
+                System.out.printf("%s --> 提交一个任务到EventLoop[%s]，任务执行时将向pipeline[%s]添加一个ChannelHandler[ServerBootstrapAcceptor] \n",Thread.currentThread(),ch.eventLoop(),pipeline);
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
@@ -172,6 +172,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return this;
     }
 
+    /**
+     * accept的SocketChannel在这里会注册到ChildGroup
+     */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;
@@ -206,6 +209,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             final Channel child = (Channel) msg;
 
+            System.out.printf("%s --> 在ServerBootstrapAdapter中 开始执行SocketChannel的pipeline初始化，注册到Selector \n", Thread.currentThread());
             child.pipeline().addLast(childHandler);
 
             setChannelOptions(child, childOptions, logger);

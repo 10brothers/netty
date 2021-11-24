@@ -40,6 +40,8 @@ import java.util.Set;
  *
  * @param <V> the type of the thread-local variable
  * @see ThreadLocal
+ *
+ * ThreadLocal的变种，将原先ThreadLocal使用HashCode和HashTable的方式直接改成了顺序数组，相比较之前，少了一些操作。频繁访问快了一点。
  */
 public class FastThreadLocal<V> {
 

@@ -113,7 +113,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
      */
     private Selector selector;
     private Selector unwrappedSelector;
-    private SelectedSelectionKeySet selectedKeys;
+    private SelectedSelectionKeySet selectedKeys;  // 优化select时 这个字段的引用和 SelectorImpl中同字段名指向同一个Set
 
     private final SelectorProvider provider;
 
@@ -176,6 +176,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
 
         if (DISABLE_KEY_SET_OPTIMIZATION) {
+            // 禁用key set优化
             return new SelectorTuple(unwrappedSelector);
         }
 
@@ -205,7 +206,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
         final Class<?> selectorImplClass = (Class<?>) maybeSelectorImplClass;
         final SelectedSelectionKeySet selectedKeySet = new SelectedSelectionKeySet();
-
+        // 不禁用key set优化，将原SelectorImpl中的selectedKeySet赋值为这里的一个Set引用，这样就能共用了
         Object maybeException = AccessController.doPrivileged(new PrivilegedAction<Object>() {
             @Override
             public Object run() {
@@ -301,11 +302,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
 
         if (inEventLoop()) {
-            register0(ch, interestOps, task);
+            register0(ch, interestOps, task); // 真正执行的是在这里，下面的任务提交后，创建的新线程就会走到这里执行注册
         } else {
             try {
                 // Offload to the EventLoop as otherwise java.nio.channels.spi.AbstractSelectableChannel.register
                 // may block for a long time while trying to obtain an internal lock that may be hold while selecting.
+                // 在Channel注册时，如果执行到这里的线程不是EventLoop关联的线程，则提交一个任务去注册（创建新线程）
                 submit(new Runnable() {
                     @Override
                     public void run() {
@@ -319,8 +321,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    /**
+     * 这里是jdk的通用NIO方式，单独针对MacOSX和Linux的Kqueue Epoll有各自的实现方式
+     */
     private void register0(SelectableChannel ch, int interestOps, NioTask<?> task) {
         try {
+            // JDK原生的Channel注册到Selector的方式
             ch.register(unwrappedSelector, interestOps, task);
         } catch (Exception e) {
             throw new EventLoopException("failed to register a channel", e);
@@ -434,6 +440,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     @Override
     protected void run() {
         int selectCnt = 0;
+        System.out.printf("%s --> 执行[io.netty.channel.nio.NioEventLoop.run],无终止循环 \n",Thread.currentThread());
         for (;;) {
             try {
                 int strategy;
@@ -697,13 +704,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             int readyOps = k.readyOps();
             // We first need to call finishConnect() before try to trigger a read(...) or write(...) as otherwise
             // the NIO JDK channel implementation may throw a NotYetConnectedException.
+            // 准备好的事件是connect
             if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
                 // remove OP_CONNECT as otherwise Selector.select(..) will always return without blocking
                 // See https://github.com/netty/netty/issues/924
                 int ops = k.interestOps();
                 ops &= ~SelectionKey.OP_CONNECT;
                 k.interestOps(ops);
-
                 unsafe.finishConnect();
             }
 
@@ -714,8 +721,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             }
 
             // Also check for readOps of 0 to workaround possible JDK bug which may otherwise lead
-            // to a spin loop
+            // to a spin loop read 和 accept事件
             if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
+                if (readyOps == SelectionKey.OP_ACCEPT)
+                    System.out.printf("%s --> 调用unsafe %s 处理accept事件 \n", Thread.currentThread(), unsafe);
+                if (readyOps == SelectionKey.OP_READ)
+                    System.out.printf("%s --> 调用unsafe %s 处理read事件 \n", Thread.currentThread(),unsafe);
                 unsafe.read();
             }
         } catch (CancelledKeyException ignored) {

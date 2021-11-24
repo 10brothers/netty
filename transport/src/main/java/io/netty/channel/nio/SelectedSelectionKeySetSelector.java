@@ -21,6 +21,10 @@ import java.nio.channels.Selector;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.Set;
 
+/**
+ * 静态代理模式
+ * 继承Selector，然后委托真真正的Selector来执行select
+ */
 final class SelectedSelectionKeySetSelector extends Selector {
     private final SelectedSelectionKeySet selectionKeys;
     private final Selector delegate;

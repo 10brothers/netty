@@ -53,7 +53,9 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
 
         @Override
         public EventExecutor next() {
-            return executors[idx.getAndIncrement() & executors.length - 1];
+            EventExecutor executor = executors[idx.getAndIncrement() & executors.length - 1];
+            System.out.printf("%s --> 选中的EventExecutor[%s] \n",Thread.currentThread(),executor);
+            return executor;
         }
     }
 
@@ -70,6 +72,7 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
 
         @Override
         public EventExecutor next() {
+            System.out.printf("%s --> BossGroup选择EventExecutor", Thread.currentThread());
             return executors[(int) Math.abs(idx.getAndIncrement() % executors.length)];
         }
     }

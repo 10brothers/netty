@@ -370,7 +370,7 @@ public interface ChannelPipeline
 
     /**
      * Inserts {@link ChannelHandler}s at the last position of this pipeline.
-     *
+     * 每次ChannelHandler添加成功后都会执行其handlerAdded方法
      * @param handlers  the handlers to insert last
      *
      */

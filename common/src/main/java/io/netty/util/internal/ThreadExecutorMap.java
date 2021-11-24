@@ -47,6 +47,8 @@ public final class ThreadExecutorMap {
     /**
      * Decorate the given {@link Executor} and ensure {@link #currentExecutor()} will return {@code eventExecutor}
      * when called from within the {@link Runnable} during execution.
+     *
+     * 返回一个Executor，此Executor的execute方法执行的是ThreadPerTaskExecutor，这里执行时会创建一个线程
      */
     public static Executor apply(final Executor executor, final EventExecutor eventExecutor) {
         ObjectUtil.checkNotNull(executor, "executor");
@@ -69,9 +71,9 @@ public final class ThreadExecutorMap {
         return new Runnable() {
             @Override
             public void run() {
-                setCurrentEventExecutor(eventExecutor);
+                setCurrentEventExecutor(eventExecutor); // 将EventExecutor设置到ThreadLocal
                 try {
-                    command.run();
+                    command.run(); // 真正执行任务
                 } finally {
                     setCurrentEventExecutor(null);
                 }

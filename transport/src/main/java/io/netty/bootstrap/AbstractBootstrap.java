@@ -274,15 +274,19 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (regFuture.cause() != null) {
             return regFuture;
         }
-
+        // 注册是异步的
         if (regFuture.isDone()) {
+            System.out.printf("%s --> 异步注册成功，开始绑定 \n", Thread.currentThread());
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            // 异步绑定
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
+            // 如果此时还没有完成注册，那么就监听Future完成，
+            System.out.printf("%s --> 异步注册还未完成，注册一个监听器，在注册完成后做绑定\n", Thread.currentThread());
             regFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -308,6 +312,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         Channel channel = null;
         try {
             channel = channelFactory.newChannel();
+            System.out.printf("%s --> 开始初始化Channel[%s] \n",Thread.currentThread(),channel);
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -320,7 +325,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        // 取出EventLoopGroup，然后注册，以NIO为例，会调用MultithreadEventLoopGroup的register方法，最终是从Group中选一个NioEventLoop调用其register方法，然后通过io.netty.channel.AbstractChannel.AbstractUnsafe.register来注册
+        System.out.printf("%s --> [start] 开始注册监听Channel[%s] \n",Thread.currentThread(),channel);
         ChannelFuture regFuture = config().group().register(channel);
+        System.out.printf("%s --> [ end ] 异步注册监听Channel[%s]结束 \n",Thread.currentThread(),channel);
+
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
@@ -349,11 +358,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        // 一个channel绑定一个EventLoop，所以BossGroup线程数设置多了也没意思
+        System.out.printf("%s --> 向EventLoop[%s]添加以一个任务，此任务中通过调用Channel[%s]#bind做绑定操作 \n",Thread.currentThread(),channel.eventLoop(),channel.getClass());
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {
+                    // 最终调用的是Pipeline中的handler#bind
+                    System.out.printf("%s --> [start] 调用Channel[%s] bind方法 \n",Thread.currentThread(),channel);
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                    System.out.printf("%s --> [ end ] 调用Channel[%s] bind方法 \n",Thread.currentThread(),channel);
                 } else {
                     promise.setFailure(regFuture.cause());
                 }

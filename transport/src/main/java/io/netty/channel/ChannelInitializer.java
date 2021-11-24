@@ -101,6 +101,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
 
     /**
      * {@inheritDoc} If override this method ensure you call super!
+     * 在调用此方法时，如果Channel已经注册了，那么就会执行initChannel方法。执行过后从initMap移除这个ChannelHandler
      */
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
@@ -134,6 +135,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             } finally {
                 ChannelPipeline pipeline = ctx.pipeline();
                 if (pipeline.context(this) != null) {
+                    System.out.printf("%s --> 移除已经执行过的InitialChannel[%s]\n",Thread.currentThread(),this);
                     pipeline.remove(this);
                 }
             }

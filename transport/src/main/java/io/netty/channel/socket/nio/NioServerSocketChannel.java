@@ -84,6 +84,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     /**
      * Create a new instance using the given {@link ServerSocketChannel}.
+     * 创建此对象时，默认执行了SelectionKey为OP_ACCEPT
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
         super(null, channel, SelectionKey.OP_ACCEPT);
@@ -145,6 +146,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
         SocketChannel ch = SocketUtils.accept(javaChannel());
+        System.out.printf("%s --> 调用accept方法，获取一个准备好的SocketChannel%s \n",Thread.currentThread(),ch);
 
         try {
             if (ch != null) {

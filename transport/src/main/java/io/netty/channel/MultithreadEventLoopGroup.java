@@ -83,11 +83,14 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     @Override
     public ChannelFuture register(Channel channel) {
+        // 调用next，选择一个EventLoop去注册
+        System.out.printf("%s --> 开始从EventLoopGroup[%s]为Channel%s中选择一个EventLoop进行绑定 \n",Thread.currentThread(),this,channel);
         return next().register(channel);
     }
 
     @Override
     public ChannelFuture register(ChannelPromise promise) {
+        // 调用next，选择一个EventLoop去注册
         return next().register(promise);
     }
 

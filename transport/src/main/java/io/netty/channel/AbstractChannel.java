@@ -53,7 +53,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     private volatile SocketAddress localAddress;
     private volatile SocketAddress remoteAddress;
-    private volatile EventLoop eventLoop;
+    private volatile EventLoop eventLoop;  // 每个channel都会对应一个EventLoop，不过一个EventLoop可以对应多个Channel
     private volatile boolean registered;
     private boolean closeInitiated;
     private Throwable initialCloseCause;
@@ -463,6 +463,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
+            System.out.printf("%s --> [io.netty.channel.AbstractChannel.AbstractUnsafe.register]  注册\n ",Thread.currentThread());
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
             if (isRegistered()) {
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
@@ -476,11 +477,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             AbstractChannel.this.eventLoop = eventLoop;
 
-            if (eventLoop.inEventLoop()) {
-                register0(promise);
+            if (eventLoop.inEventLoop()) {  //启动EventLoop的线程执行到这
+                register0(promise); // 实际执行的此注册的是在EventLoop绑定的线程中，就是下面那个execute提交触发创建的线程
             } else {
-                try {
-                    eventLoop.execute(new Runnable() {
+                System.out.printf("%s --> [io.netty.channel.AbstractChannel.AbstractUnsafe.register] 向EventLoop[%s]中提交注册Channel[%s]任务 \n",Thread.currentThread(),eventLoop,promise.channel());
+
+                try {     //可能还未启动EventLoop，启动
+                    eventLoop.execute(new Runnable() { // 这里提交任务到EventLoop中，先把任务添加到队列，然后创建启动线程，并处理添加的任务
                         @Override
                         public void run() {
                             register0(promise);
@@ -497,7 +500,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
-        private void register0(ChannelPromise promise) {
+        private void register0(ChannelPromise promise) {  //这里会去注册channel
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
                 // call was outside of the eventLoop
@@ -505,21 +508,31 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
-                doRegister();
+                System.out.printf("%s --> [io.netty.channel.AbstractChannel.AbstractUnsafe.register0] 调用子类实现的注册逻辑 \n",Thread.currentThread());
+                doRegister(); // 子类实现，真的的注册channel操作，如果是JavaNIO就是将channel注册到Selector
+                System.out.printf("%s --> [io.netty.channel.AbstractChannel.AbstractUnsafe.register0] 实际的注册动作完成 \n",Thread.currentThread());
+
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                System.out.printf("%s --> [start] 开始调用所有注册前添加进来的Handler的handlerAdded方法 \n",Thread.currentThread());
                 pipeline.invokeHandlerAddedIfNeeded();
+                System.out.printf("%s --> [ end ] 完成所有注册前添加进来的Handler的handlerAdded方法的调用 \n",Thread.currentThread());
 
-                safeSetSuccess(promise);
-                pipeline.fireChannelRegistered();
+                safeSetSuccess(promise); // 将promise状态置为成功，且会通知此Promise上添加的所有监听器
+                System.out.printf("%s --> [start] 触发pipeline中handler的channelRegistered方法 \n",Thread.currentThread());
+                pipeline.fireChannelRegistered();  //
+                System.out.printf("%s --> [ end ] 完成pipeline中handler的channelRegistered调用 \n",Thread.currentThread());
+
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
                 if (isActive()) {
                     if (firstRegistration) {
+                        System.out.printf("%s --> [start] 触发pipeline中handler的channelActive方法 \n",Thread.currentThread());
                         pipeline.fireChannelActive();
+                        System.out.printf("%s --> [ end ] 完成pipeline中handler的channelActive调用 \n",Thread.currentThread());
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
                         // again so that we process inbound data.
@@ -557,6 +570,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         "address (" + localAddress + ") anyway as requested.");
             }
 
+            // 如果channel已经是active了后续不用再执行Pipeline中的active
             boolean wasActive = isActive();
             try {
                 doBind(localAddress);
@@ -567,6 +581,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             if (!wasActive && isActive()) {
+                System.out.printf("%s --> 绑定操作执行完毕，Channel为活跃状态，添加一个任务，执行Pipeline中的channelActive \n",Thread.currentThread());
                 invokeLater(new Runnable() {
                     @Override
                     public void run() {

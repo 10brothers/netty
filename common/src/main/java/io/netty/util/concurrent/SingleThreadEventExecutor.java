@@ -76,10 +76,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private final Queue<Runnable> taskQueue;
 
-    private volatile Thread thread;
+    private volatile Thread thread; // 调用doStartThread方法时将当前线程设置进来
     @SuppressWarnings("unused")
     private volatile ThreadProperties threadProperties;
-    private final Executor executor;
+    private final Executor executor;  // 这个executor执行一次就会创建一个线程
     private volatile boolean interrupted;
 
     private final CountDownLatch threadLock = new CountDownLatch(1);
@@ -809,6 +809,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return isTerminated();
     }
 
+    /**
+     * 执行提交的任务，如果EventLoop关联的线程还未创建，则会去创建一个新的线程执行子类重写的run方法，
+     * run方法里面会执行提交的任务
+     * @param task
+     */
     @Override
     public void execute(Runnable task) {
         ObjectUtil.checkNotNull(task, "task");
@@ -824,6 +829,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         boolean inEventLoop = inEventLoop();
         addTask(task);
         if (!inEventLoop) {
+            System.out.printf("%s --> 为EventLoop[%s]启动一个线程执行任务 \n",Thread.currentThread(),this);
             startThread();
             if (isShutdown()) {
                 boolean reject = false;
@@ -972,10 +978,12 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private void doStartThread() {
         assert thread == null;
-        executor.execute(new Runnable() {
+        System.out.printf("%s --> 使用Executor[%s]来执行任务 \n",Thread.currentThread(),executor);
+        executor.execute(new Runnable() { // executor默认是ThreadPerTaskExecutor，每调用execute都是一个新的线程
             @Override
             public void run() {
-                thread = Thread.currentThread();
+                thread = Thread.currentThread();  // 将thread更新成当前线程，这个线程就是刚创建的，且和当前的EventExecutor绑定
+                System.out.printf("%s --> EventLoop[%s]的线程是[%s] \n",Thread.currentThread(),SingleThreadEventExecutor.this,thread);
                 if (interrupted) {
                     thread.interrupt();
                 }
@@ -983,7 +991,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
-                    SingleThreadEventExecutor.this.run();
+                    System.out.printf("%s --> 开始进入循环 \n", Thread.currentThread());
+                    SingleThreadEventExecutor.this.run();  // 调用SingleThreadEventExecutor的run方法，一般是子类覆写。里面的逻辑就是死循环，处理IO
                     success = true;
                 } catch (Throwable t) {
                     logger.warn("Unexpected exception from an event executor: ", t);

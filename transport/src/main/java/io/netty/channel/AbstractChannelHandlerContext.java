@@ -108,6 +108,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         this.executor = executor;
         this.executionMask = mask(handlerClass);
         // Its ordered if its driven by the EventLoop or the given Executor is an instanceof OrderedEventExecutor.
+        // 如果EventExecutor为null或者类型是 OrderedEventExecutor，一般都是有序的
         ordered = executor == null || executor instanceof OrderedEventExecutor;
     }
 
@@ -477,6 +478,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return deregister(newPromise());
     }
 
+    /**
+     *  执行所有OutBoundHandler中实现的bind方法，最终执行到HeadContext的bind方法，，这个方法里执行真正的SocketBind
+     */
     @Override
     public ChannelFuture bind(final SocketAddress localAddress, final ChannelPromise promise) {
         ObjectUtil.checkNotNull(localAddress, "localAddress");
@@ -493,17 +497,27 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             safeExecute(executor, new Runnable() {
                 @Override
                 public void run() {
+                    System.out.printf("%s --> [start] ChannelHandler[%s] bind \n",Thread.currentThread(),next);
                     next.invokeBind(localAddress, promise);
+                    System.out.printf("%s --> [ end ] ChannelHandler[%s] bind \n",Thread.currentThread(),next);
                 }
             }, promise, null, false);
         }
         return promise;
     }
 
+    /**
+     *
+     * @param localAddress
+     * @param promise
+     */
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
-        if (invokeHandler()) {
+        if (invokeHandler()) {  // 是否调用handler的bind
             try {
-                ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
+                ChannelOutboundHandler handler = (ChannelOutboundHandler) handler();
+                System.out.printf("%s --> [start] 调用ChannelHandler[%s] bind \n",Thread.currentThread(),handler);
+                handler.bind(this, localAddress, promise);
+                System.out.printf("%s --> [ end ] 调用ChannelHandler[%s] bind \n",Thread.currentThread(),handler);
             } catch (Throwable t) {
                 notifyOutboundHandlerException(t, promise);
             }
@@ -882,6 +896,11 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return ctx;
     }
 
+    /**
+     * 从tail向head找出链上的所有符合给定mask的ChannelHandler
+     * @param mask
+     * @return
+     */
     private AbstractChannelHandlerContext findContextOutbound(int mask) {
         AbstractChannelHandlerContext ctx = this;
         EventExecutor currentExecutor = executor();
@@ -911,6 +930,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         handlerState = REMOVE_COMPLETE;
     }
 
+    /**
+     * 通过调用此方法，改变此HandlerContext的handlerState为ADD_COMPLETE，handler才会被执行调用（还有另外一种场景先不考虑）
+     */
     final boolean setAddComplete() {
         for (;;) {
             int oldState = handlerState;
@@ -935,7 +957,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         // We must call setAddComplete before calling handlerAdded. Otherwise if the handlerAdded method generates
         // any pipeline events ctx.handler() will miss them because the state will not allow it.
         if (setAddComplete()) {
-            handler().handlerAdded(this);
+            ChannelHandler handler = handler();
+            System.out.printf("%s --> 执行 Handler[%s]的handlerAdded操作 \n",Thread.currentThread(),handler);
+            handler.handlerAdded(this);
         }
     }
 
@@ -958,6 +982,8 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
      * If this method returns {@code false} we will not invoke the {@link ChannelHandler} but just forward the event.
      * This is needed as {@link DefaultChannelPipeline} may already put the {@link ChannelHandler} in the linked-list
      * but not called {@link ChannelHandler#handlerAdded(ChannelHandlerContext)}.
+     *
+     * 此方法返回true则调用handler，否则将事件转发下去
      */
     private boolean invokeHandler() {
         // Store in local variable to reduce volatile reads.

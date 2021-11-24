@@ -29,6 +29,7 @@ import io.netty.channel.internal.ChannelUtils;
 import io.netty.channel.socket.ChannelInputShutdownEvent;
 import io.netty.channel.socket.ChannelInputShutdownReadComplete;
 import io.netty.channel.socket.SocketChannelConfig;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.internal.StringUtil;
 
 import java.io.IOException;
@@ -39,6 +40,8 @@ import static io.netty.channel.internal.ChannelUtils.WRITE_STATUS_SNDBUF_FULL;
 
 /**
  * {@link AbstractNioChannel} base class for {@link Channel}s that operate on bytes.
+ *
+ * 这个主要是用来操作字节的。一般传输的数据是以完全的字节形式，需要解决拆包 粘包问题的，要使用这个，目前的在用实现就是 {@link NioSocketChannel}
  */
 public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);

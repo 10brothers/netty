@@ -20,6 +20,8 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
+import java.nio.charset.Charset;
+
 /**
  * Handler implementation for the echo client.  It initiates the ping-pong
  * traffic between the echo client and server by sending the first message to
@@ -41,12 +43,15 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-        ctx.writeAndFlush(firstMessage);
+        ByteBuf buf = ctx.alloc().buffer();
+
+        ctx.channel().writeAndFlush(buf.writeBytes("我来发起请求了".getBytes(Charset.forName("utf-8"))));
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.write(msg);
+        ByteBuf buf = (ByteBuf) msg;
+        System.out.printf("得到服务端响应:[%s]",buf.toString(Charset.forName("utf-8")));
     }
 
     @Override

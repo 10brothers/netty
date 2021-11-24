@@ -15,9 +15,15 @@
  */
 package io.netty.example.echo;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.socket.SocketChannel;
+
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 
 /**
  * Handler implementation for the echo server.
@@ -26,8 +32,15 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 public class EchoServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.write(msg);
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws UnsupportedEncodingException {
+
+        ByteBuf receivedMsgBuf = (ByteBuf) msg;
+        System.out.printf("接收到客户端发起的请求:[%s] \n", receivedMsgBuf.toString(Charset.forName("utf-8")));
+
+        Channel channel = ctx.channel();
+        ByteBuf byteBuf = channel.alloc().buffer();
+        byteBuf.writeBytes("哈哈啊哈".getBytes("UTF-8"));
+        channel.writeAndFlush(byteBuf);
     }
 
     @Override
