@@ -133,10 +133,9 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
                 // We do so to prevent multiple calls to initChannel(...).
                 exceptionCaught(ctx, cause);
             } finally {
-                ChannelPipeline pipeline = ctx.pipeline();
-                if (pipeline.context(this) != null) {
+                if (!ctx.isRemoved()) {
                     System.out.printf("%s --> 移除已经执行过的InitialChannel[%s]\n",Thread.currentThread(),this);
-                    pipeline.remove(this);
+                    ctx.pipeline().remove(this);
                 }
             }
             return true;
