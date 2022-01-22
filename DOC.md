@@ -60,10 +60,17 @@ boss线程
     在main线程执行到SingleThreadEventExecutor#doStartThread方法时，会向EventExecutor提交一个任务，这个任务可以理解为真正激活了EventLoop，因为调用了NioEventLoop#run，这个方法中执行了for(;;)，并将这个线程绑定到当前EventLoop实例上
     boss线程的执行逻辑，就都在这个循环里了。这个任务会是NioServerSocketChannel#eventLoop#executor执行的第一个任务。
     （这个register实际上就是一些前置动作，确定ServerChannel的pipeline Handler，然后给ServerChannel绑定一个EventLoop实例，再之后给EventLoop绑定一个Thread实例）
+    Register
     NioEventLoop#run跑起来后，此时任务队列中至少存在一个main线程提交的任务，那就是register任务，执行方法AbstractChannel.AbstractUnsafe#register0，调用AbstractNioChannel#doRegister，将ServerSocketChannel注册到Selector上，不过此时没有注册任务感兴趣的事件。同时将NioServerSocketChannel实例作为attr绑定到Selector上了。
-    接着调用执行pendingHandler，此时就是main线程添加的ChannelInitializer，需要将此handler的状态设置成添加完成，然后执行其initChannel方法，这个方法中会再向pipeline添加一个handler（这个handler是构造ServerBootstrap时指定的）以及提交一个任务。 
+    接着调用执行pendingHandler，此时就是main线程添加的ChannelInitializer，需要将此handler的状态设置成添加完成，然后执行其initChannel方法，这个方法中会再向pipeline添加一个handler（这个handler是构造ServerBootstrap时指定的）以及提交一个任务。
     触发所有PipelineHandler的channelRegistered方法，第一次注册在触发channelActive，到此注册的动作完成。
-    register任务是异步执行的，main线程中拿到    ChannelFuture判断是否完成，一般来讲都是未完成，这里假设未完成，bind操作在boss线程
+    执行ChannelInitializer中提交的任务，向PipelineHandler链中添加一个ServerBootstrapAcceptor，这个很重要，因为它连接着bossGroup和workerGroup,将新建立的SocketChannel注册到workerGroup
+    register任务是异步执行的，main线程中拿到ChannelFuture判断是否完成，一般来讲都是未完成，即使注册完成，还是会交由boss线程来处理，提交一个bind任务到NioServerSocketChannel的EvenLoop
+    Bind
+    绑定的过程比较特殊，是通过Channel对应的ChannelPipeline来实现的，从pipeline的尾部开始，逐个调用重写的bind方法，在HeadContext的bind中，通过AbstractUnsafe的bind方法最终委托给了NioServerSocketChannel的bind方法，最终将ServerSocketChannel绑定到指定的端口上。绑定结束后，如果是首次执行bind，提交一个任务
+    执行上面提交的任务，调用pipeline的channelActive，给NioServerSocketChannel注册感兴趣的事件OP_ACCEPT
+    至此，所有的准备工作都已结束，ServerSocketChannel就绪，可以提供服务了。
+    
 
 
 
