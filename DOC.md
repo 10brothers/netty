@@ -55,6 +55,13 @@ register任务是异步执行的，main线程中拿到ChannelFuture判断是否�
   这一块循环体内的逻辑都是执行的NioEvenLoop#run方法，流程参见下面《NioEventLoop#run流程解释》
 
 ## worker线程 
+> Worker NioEventLoop启动步骤和BossEventLoop一样，在boss线程中，拿到新连接的NioSocketChannel，
+执行fireChannelRead，之后就会通过childGroup去进行注册，这个过程和上面是一样：从group中选择一个EventLoop实例，
+EventLoop找到关联的NioSocketChannel，从SocketChannel再找到NioSocketChannelUnsafe，通过其register方法提交一个注册任务。
+从这里开始，任务就转到worker线程来执行了，这也是worker线程执行的第一个任务。任务中调用AbstractChannel#register0，最终回到JavaNIO的register方法。
+不过此时selectionKey标识是0，在注册结束后，如果channel此时处于活跃状态，根据是否首次注册选择fireChannelActive，
+在执行到HeadContext#channelActive中，会根据是否配置了默认自动读取来执行readIfIsAutoRead,其中调用NioSocketChannel#read()，
+非首次注册且自动读取调用AbstractNioChannel#doBeginRead,注册对应的Channel在初始化时指定的事件类型
 
 
 
