@@ -5,7 +5,7 @@
 EventLoopGroup初始化过程 `class -> MultithreadEventExecutorGroup` 
     >> 1、没有自定义Executor，默认使用ThreadPerTaskExecutor，这个Executor的特点是没执行一个人创建一个线程
     > 
-    >> 2、初始化children字段，是一个EventExecutor数组，通过调用protected方法newChild（子类实现），返回一个EventLoop实例。EventLoop会持有Executor实例以及其他参数
+    >> 2、初始化children字段，是一个EventExecutor数组，通过调用protected方法newChild（子类实现），返回一个EventLoop实例。EventLoop会持有Executor实例以及其他参数，同时会创建与之绑定的Selector实例，后续提交给这个EventLoop的Channel都会注册到这个Selector中
     >
     >> 3、创建EventLoop选择器，用于从EventExecutor数组中选择下一个EventLoop实例处理新连接的AbstractNioChannel
 2. > 创建ServerBootstrap，并且配置boss和worker group，配置使用到的Channel类型，这里是NioServerSocketChannel,其他一些相关选项（是否阻塞等），配置NioServerSocketChannel所需要的Handler，然后配置NioSocketChannel所使用的Handler
