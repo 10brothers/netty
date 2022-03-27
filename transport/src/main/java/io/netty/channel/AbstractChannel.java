@@ -39,6 +39,9 @@ import java.util.concurrent.RejectedExecutionException;
 
 /**
  * A skeletal {@link Channel} implementation.
+ * <p>Channel的一个实现骨架，每个Channel实例创建后，会执行它的register方法，在register方法中绑定到执行register方法的EventLoop上
+ * <p>main线程创建ServerSocketChannel，Boss EventLoopGroup中的EventLoop在执行accept后，创建SocketChannel，会初始化AbstractUnsafe，ChannelPipeline
+ * SocketChannel创建之后提，走到ServerBootstrapAcceptor的channelRead方法，设置一些ChannelHandler等，然后使用WorkerGroup去注册SocketChannel，最终执行注册的WorkerGroup中的EventLoop与此SocketChannel绑定
  */
 public abstract class AbstractChannel extends DefaultAttributeMap implements Channel {
 
@@ -47,7 +50,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     private final Channel parent;
     private final ChannelId id;
     private final Unsafe unsafe;
-    private final DefaultChannelPipeline pipeline;
+    private final DefaultChannelPipeline pipeline; // 每个Channel都有一个属于自己的ChannelPipeline
     private final VoidChannelPromise unsafeVoidPromise = new VoidChannelPromise(this, false);
     private final CloseFuture closeFuture = new CloseFuture(this);
 

@@ -105,7 +105,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                                   String name, Class<? extends ChannelHandler> handlerClass) {
         this.name = ObjectUtil.checkNotNull(name, "name");
         this.pipeline = pipeline;
-        this.executor = executor;
+        this.executor = executor; // 每个ChannelHandler的执行，都可以在指定的EventExecutorGroup中选择一个EventExecutor执行。
         this.executionMask = mask(handlerClass);
         // Its ordered if its driven by the EventLoop or the given Executor is an instanceof OrderedEventExecutor.
         // 如果EventExecutor为null或者类型是 OrderedEventExecutor，一般都是有序的
@@ -129,10 +129,10 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public EventExecutor executor() {
-        if (executor == null) {
-            return channel().eventLoop();
+        if (executor == null) {  // 如果ChannelHandler没有指定EventExecutorGroup，那么执行此Handler的线程就是当前Channel所绑定到的EventExecutor
+            return channel().eventLoop(); // 如果当前Handler的执行比较耗时，那么此EventExecutor（EventLoop）处理它所管理的Channel读写能力就下降了
         } else {
-            return executor;
+            return executor; // 使用指定的EventExecutor中的EventExecutor来执行
         }
     }
 

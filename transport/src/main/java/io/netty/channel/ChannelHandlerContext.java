@@ -83,6 +83,11 @@ import io.netty.util.concurrent.EventExecutor;
  * {@link ChannelPipeline} to find out more about inbound and outbound operations,
  * what fundamental differences they have, how they flow in a  pipeline,  and how to handle
  * the operation in your application.
+ *
+ * <p>
+ *     每个ChannelHandler都会被封装成ChannelHandlerContext，然后这些Context组成chain。
+ *      Context中包含了绑定的Channel实例，执行此ChannelHandler的EventExecutor实例，前一个Context和后一个Context
+ * </p>
  */
 public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvoker, ChannelOutboundInvoker {
 
@@ -93,6 +98,7 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
 
     /**
      * Returns the {@link EventExecutor} which is used to execute an arbitrary task.
+     * <p> 返回执行任务的EventExecutor，可能为与当前Channel实例绑定的EventLoop，也可能是其他的EventExecutorGroup中的EventExecutor
      */
     EventExecutor executor();
 

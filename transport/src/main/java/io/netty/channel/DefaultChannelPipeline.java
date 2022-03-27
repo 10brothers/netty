@@ -42,6 +42,8 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 /**
  * The default {@link ChannelPipeline} implementation.  It is usually created
  * by a {@link Channel} implementation when the {@link Channel} is created.
+ *
+ * <p> 每个Channel在创建时，都会新创建属于自己的ChannelPipeline（AbstractChannel的构造方法中）
  */
 public class DefaultChannelPipeline implements ChannelPipeline {
 
@@ -64,12 +66,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     final AbstractChannelHandlerContext head;
     final AbstractChannelHandlerContext tail;
 
-    private final Channel channel;
+    private final Channel channel; // 与此ChannelPipeline所绑定的Channel
     private final ChannelFuture succeededFuture;
     private final VoidChannelPromise voidPromise;
     private final boolean touch = ResourceLeakDetector.isEnabled();
 
-    private Map<EventExecutorGroup, EventExecutor> childExecutors;
+    private Map<EventExecutorGroup, EventExecutor> childExecutors; // 如果配置了一个Channel固定使用EventExecutorGroup中个一个EventExecutor，那就要缓存下来，此Channel中所有想使用某个Group执行的地方都使用同一个EventExecutor
     private volatile MessageSizeEstimator.Handle estimatorHandle;
     private boolean firstRegistration = true;
 
@@ -126,7 +128,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
         Boolean pinEventExecutor = channel.config().getOption(ChannelOption.SINGLE_EVENTEXECUTOR_PER_GROUP);
         if (pinEventExecutor != null && !pinEventExecutor) {
-            return group.next();
+            return group.next(); // 此Channel在执行ChannelHandler时，不同的Handler如果配置了同一个EventExecutorGroup会使用不同的EventExecutor
         }
         Map<EventExecutorGroup, EventExecutor> childExecutors = this.childExecutors;
         if (childExecutors == null) {
