@@ -446,6 +446,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         System.out.printf("%s --> 执行[io.netty.channel.nio.NioEventLoop.run],无终止循环 \n",Thread.currentThread());
         for (;;) {
             try {
+                System.out.println("-------------------------------------------");
                 int strategy;
                 try {
                     strategy = selectStrategy.calculateStrategy(selectNowSupplier, hasTasks());
@@ -465,6 +466,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                         try {
                             if (!hasTasks()) {
                                 strategy = select(curDeadlineNanos);
+                                System.out.println("+++++++++++++++++++++++++++++++");
                             }
                         } finally {
                             // This update is just to help block unnecessary selector wakeups

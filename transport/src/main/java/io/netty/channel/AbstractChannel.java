@@ -477,7 +477,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
-
+            // 这里将上一阶段选择的EventLoop实例与当前的Channel进行绑定
             AbstractChannel.this.eventLoop = eventLoop;
 
             if (eventLoop.inEventLoop()) {  //启动EventLoop的线程执行到这

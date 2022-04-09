@@ -1449,6 +1449,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 一个Runnable实现类，持有一个ChannelHandlerContext和下一个PendingHandlerCallback，组成一个单向链表
+     * 主要用于执行ChannelInitializer这个特殊的ChannelHandler
+     */
     private abstract static class PendingHandlerCallback implements Runnable {
         final AbstractChannelHandlerContext ctx;
         PendingHandlerCallback next;

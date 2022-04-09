@@ -47,7 +47,7 @@ public final class ThreadExecutorMap {
     /**
      * Decorate the given {@link Executor} and ensure {@link #currentExecutor()} will return {@code eventExecutor}
      * when called from within the {@link Runnable} during execution.
-     *
+     * 装饰给定的Executor，这样实际执行得Runnable中，可以通过ThreadLocal，获取到EventExecutor。目前这个EventExecutor就是SingleThreadEventLoop的子类实例对象
      * 返回一个Executor，此Executor的execute方法执行的是ThreadPerTaskExecutor，这里执行时会创建一个线程
      */
     public static Executor apply(final Executor executor, final EventExecutor eventExecutor) {

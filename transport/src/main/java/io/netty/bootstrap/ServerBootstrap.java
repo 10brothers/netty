@@ -148,6 +148,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     pipeline.addLast(handler);
                 }
                 System.out.printf("%s --> 提交一个任务到EventLoop[%s]，任务执行时将向pipeline[%s]添加一个ChannelHandler[ServerBootstrapAcceptor] \n",Thread.currentThread(),ch.eventLoop(),pipeline);
+                // 添加这个ChannelInitializer时，是main线程在执行， 此时还没有执行到EventLoopGroup#group()#register()方法，
+                // 这个方法执行过后，创建的ServerSocketChannel才会与一个EventLoop进行绑定，才能执行task
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
