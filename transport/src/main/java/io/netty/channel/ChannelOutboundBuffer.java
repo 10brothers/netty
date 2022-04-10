@@ -108,6 +108,7 @@ public final class ChannelOutboundBuffer {
     }
 
     /**
+     * 将要写入的消息添加到Buffer中，从对象池中拿到一个Entry，然后将消息转换成Entry，加入到Buffer中的队列尾部
      * Add given message to this {@link ChannelOutboundBuffer}. The given {@link ChannelPromise} will be notified once
      * the message was written.
      */
@@ -132,6 +133,7 @@ public final class ChannelOutboundBuffer {
     /**
      * Add a flush to this {@link ChannelOutboundBuffer}. This means all previous added messages are marked as flushed
      * and so you will be able to handle them.
+     * 把之前添加进来的所有消息（Entry）都标记为flushed，修改flushedEntry指针和unflushedEntry指针
      */
     public void addFlush() {
         // There is no need to process all entries if there was already a flush before and no new messages
@@ -162,6 +164,7 @@ public final class ChannelOutboundBuffer {
     /**
      * Increment the pending bytes which will be written at some point.
      * This method is thread-safe!
+     * 增加已经加入到buffer中还未flush的字节大小
      */
     void incrementPendingOutboundBytes(long size) {
         incrementPendingOutboundBytes(size, true);

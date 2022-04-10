@@ -42,6 +42,11 @@ import java.util.concurrent.RejectedExecutionException;
  * <p>Channel的一个实现骨架，每个Channel实例创建后，会执行它的register方法，在register方法中绑定到执行register方法的EventLoop上
  * <p>main线程创建ServerSocketChannel，Boss EventLoopGroup中的EventLoop在执行accept后，创建SocketChannel，会初始化AbstractUnsafe，ChannelPipeline
  * SocketChannel创建之后提，走到ServerBootstrapAcceptor的channelRead方法，设置一些ChannelHandler等，然后使用WorkerGroup去注册SocketChannel，最终执行注册的WorkerGroup中的EventLoop与此SocketChannel绑定
+ *
+ * <p>对AbstractChannel所有子类上操作channel的方法调用，几乎都委托给了ChannelPipeline相应的方法，走一系列的处理器去处理。
+ * 还有一部分在子类实现中委托给了Unsafe的一些方法，因为AbstractUnsafe中的方法才是真正执行读写等操作的地方</p>
+ *
+ * <p>每一个AbstractChannel子类在创建时，都会同时创建一个属于自己的Unsafe实例和ChannelPipeline实例</p>
  */
 public abstract class AbstractChannel extends DefaultAttributeMap implements Channel {
 
@@ -427,10 +432,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     }
 
     /**
+     * 每个Channel 都有一个自己的Unsafe实例，也就是每个Channel拥有自己的ChannelOutboundBuffer
      * {@link Unsafe} implementation which sub-classes must extend and use.
      */
     protected abstract class AbstractUnsafe implements Unsafe {
-
+        /** 每个Channel 一个buffer，在Channel创建时创建，Channel关闭时置为null   */
         private volatile ChannelOutboundBuffer outboundBuffer = new ChannelOutboundBuffer(AbstractChannel.this);
         private RecvByteBufAllocator.Handle recvHandle;
         private boolean inFlush0;
@@ -860,7 +866,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 close(voidPromise());
             }
         }
-
+        // 最终对write的调用都会走到这里
         @Override
         public final void write(Object msg, ChannelPromise promise) {
             assertEventLoop();
@@ -899,7 +905,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             outboundBuffer.addMessage(msg, size, promise);
         }
-
+        // 最终调用的flush都是走到这里
         @Override
         public final void flush() {
             assertEventLoop();
@@ -1137,6 +1143,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     /**
      * Flush the content of the given buffer to the remote peer.
+     * 将ChannelOutboundBuffer中的数据写入到Socket的缓冲区中，这个方法由此ChannelU所属的Unsafe实例来调用，Unsafe#write方法由ChannelPipeline#write方法调用
      */
     protected abstract void doWrite(ChannelOutboundBuffer in) throws Exception;
 

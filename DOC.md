@@ -141,3 +141,11 @@ EventLoop最核心的是 持有一个Thread对象和Executor对象，方法execu
 
 Executor对象可以自定义，只要是Executor的实现类都可以
 
+
+数据的流转路径
+
+EventLoop从Selector中选择出Read事件的Channel，然后从Channel中读取到数据，交接着调用ChannelPipeline#read方法，触发channelRead流程，这个流程从HeadContext开始。
+之后会遇到处理拆包和粘包，涉及到ByteToMessageDecoder，MessageToMessageDecoder，再后面就是各种处理和业务处理。在TailContext前一个的Handler中，要调用Channel#writeAndFlush方法，Inbound处理完后，就是Outbound的处理。
+
+
+

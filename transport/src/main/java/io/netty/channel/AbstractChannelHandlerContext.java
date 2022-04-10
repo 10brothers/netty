@@ -58,6 +58,9 @@ import static io.netty.channel.ChannelHandlerMask.MASK_USER_EVENT_TRIGGERED;
 import static io.netty.channel.ChannelHandlerMask.MASK_WRITE;
 import static io.netty.channel.ChannelHandlerMask.mask;
 
+/**
+ * 所有的ChannelHandler的事件被触发后，如果需要事件继续向下传播，必须要调用相应的fireXXX方法，来使得事件可以继续传播。
+ */
 abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, ResourceLeakHint {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannelHandlerContext.class);
@@ -772,7 +775,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         write(msg, true, promise);
         return promise;
     }
-
+    // 调用write和flush，write的动作是将消息写入到ChannelOutBuffer中，flush的动作才是写入到socket缓冲区
     void invokeWriteAndFlush(Object msg, ChannelPromise promise) {
         if (invokeHandler()) {
             invokeWrite0(msg, promise);
