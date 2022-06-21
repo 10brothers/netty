@@ -150,8 +150,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             boolean close = false;
             try {
                 do {
-                    byteBuf = allocHandle.allocate(allocator);
-                    allocHandle.lastBytesRead(doReadBytes(byteBuf));
+                    byteBuf = allocHandle.allocate(allocator); // 分配一个ByteBuf用于接收从socket读取的数据
+                    allocHandle.lastBytesRead(doReadBytes(byteBuf)); // 调用外部类的doReadBytes，因为外部类的实现NioSocketChannel持有SocketChannel实例，可以从socket读取数据
                     if (allocHandle.lastBytesRead() <= 0) {
                         // nothing was read. release the buffer.
                         byteBuf.release();
@@ -166,7 +166,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
                     allocHandle.incMessagesRead(1);
                     readPending = false;
-                    pipeline.fireChannelRead(byteBuf);
+                    pipeline.fireChannelRead(byteBuf);// 读取一定数量的数据后，就立马调用channelRead，如果设置了byteToMessageDecoder，先做一个累积cumulation，不满足解码的话，后续的channelRead不再调用，够一个完整的消息后，就释放cumulation
                     byteBuf = null;
                 } while (allocHandle.continueReading());
 

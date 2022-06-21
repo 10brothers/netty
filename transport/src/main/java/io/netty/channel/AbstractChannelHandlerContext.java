@@ -379,7 +379,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     private void invokeChannelRead(Object msg) {
         if (invokeHandler()) {
-            try {
+            try { // 调用ChannelHandler的channelRead，在channelRead方法中，通过传递过去的this，继续调用fireChannelRead
                 ((ChannelInboundHandler) handler()).channelRead(this, msg);
             } catch (Throwable t) {
                 invokeExceptionCaught(t);

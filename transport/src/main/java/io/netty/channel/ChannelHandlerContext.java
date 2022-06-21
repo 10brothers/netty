@@ -111,6 +111,7 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
 
     /**
      * The {@link ChannelHandler} that is bound this {@link ChannelHandlerContext}.
+     * 此方法返回 ChannelHandlerContext所持有的ChannelHandler
      */
     ChannelHandler handler();
 

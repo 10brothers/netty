@@ -3,7 +3,7 @@
 ## main线程执行流程
 1. > 分别初始化Boss NioEvenLoopGroup 和 worker NioEvenLoopGroup
 EventLoopGroup初始化过程 `class -> MultithreadEventExecutorGroup` 
-    >> 1、没有自定义Executor，默认使用ThreadPerTaskExecutor，这个Executor的特点是没执行一个人创建一个线程
+    >> 1、没有自定义Executor，默认使用ThreadPerTaskExecutor，这个Executor的特点是每执行一个任务创建一个线程
     > 
     >> 2、初始化children字段，是一个EventExecutor数组，通过调用protected方法newChild（子类实现），返回一个EventLoop实例。EventLoop会持有Executor实例以及其他参数，同时会创建与之绑定的Selector实例，后续提交给这个EventLoop的Channel都会注册到这个Selector中
     >
@@ -27,7 +27,7 @@ EventLoopGroup初始化过程 `class -> MultithreadEventExecutorGroup`
    > ---
    > 7. 拿到Channel的unsafe实例，调用AbstractChannel.AbstractUnsafe#register
    > ---
-   > 8. 判断当前执行register操作的线程是否为此Channel关联的EventLoop绑定的线程，如果是，则直接执行，否则将注册动作提交到EventLoop中执行。此时线程是main线程，而EventLoop中绑定的线程还未初始化，所以结果显然为false，走任务的方式执行
+   > 8. 将传入的EventLoop和当前的Channel绑定，然后判断当前执行register操作的线程是否为传入的EventLoop绑定的线程，如果是，则直接执行，否则将注册动作提交给EventLoop中执行。注意⚠️：由于此时执行到AbstractUnsafe#register方法的线程是main线程，而EventLoop中绑定的线程还未初始化，所以结果显然为false，向EventLoop提交一个注册任务，提交任务会触发EventLoop的启动（执行SingleThreadEventExecutor#doStartThread），从线程池拿到一个空闲线程与EventLoop进行绑定，这个线程就用来执行EventLoop的run方法
    > ---
    > 9. 提交任务到EventLoop，先将任务加入到任务队列，然后判断当前线程是否为此EventLoop绑定的线程，如果不是，启动线程，有个CAS状态变更。这里启动实际上是使用和EventLoop绑定的Executor来执行任务，这个任务是异步执行的
    > ---
@@ -149,3 +149,29 @@ EventLoop从Selector中选择出Read事件的Channel，然后从Channel中读取
 
 
 
+每个Channel都会持有一个AbstractUnsafe的实例和DefaultChannelPipeline实例，而DefaultChannelPipeline又会持有对应的Channel实例对象
+
+每个NioEventLoop都有一个自己的Selector，这个NioEventLoop处理的所有Channel都会注册到它对应的Selector上
+
+默认情况下，添加到DefaultChannelPipeline的Handler可以指定Executor，如果不指定，就使用Channel对应的EventLoop来执行Handler
+
+以NIO为例
+ServerBootstrap拿到配置的Boss NioEvenLoopGroup，调用其register方法，register方法中通过next方法选择一个NioEventLoop实例，调用NioEventLoop的register方法
+NioEventLoop的register方法中，通过传入的NioServerSocketChannel实例，调用它的unsafe方法获取AbstractNioUnsafe的子类实例（AbstractNioUnsafe为AbstractChannel的一个字段）
+然后调用Unsafe的register方法（这里是调用AbstractUnsafe的register方法，会把处理当前Channel的NioEventLoop实例绑定到当前的AbstractChannel，这样AbstractChannel就能知道处理它的线程是不是它对应的EventLoop），再调用AbstractNioChannel的doRegister方法，在doRegister中，拿到ServerSocketChannel，然后调用其register方法，传入Selector和当前的AbstractNioChannel实例对象作为attachment
+
+
+NioEventLoop的循环中，拿到就绪的SelectionKey，然后从SelectionKey中取出attachment（就是对应的AbstractNioChannel对象）
+判断SelectionKey的事件类型，如果是OP_WRITE，通过AbstractNioChannel拿到Unsafe实例，调用forceFlush方法，如果是OP_READ OP_ACCEPT调用Unsafe的read方法
+
+对于NioServerSocketChannel来说，它由属于Boss NioEventLoopGroup的EventLoop所管理，EventLoop循环时就能处理到其ACCEPT事件，然后调用其Unsafe的read方法
+NioServerSocketChannel的Unsafe实例为 NioMessageUnsafe，在NioMessageUnsafe实现的read方法中，进一步调用NioServerSocketChannel#doReadMessages（SocketUtil#accpet）方法来拿到建立连接的SocketChannel，包装成NioSocketChannel
+通过RecvByteBufAllocator.Handle来累计已读数据量已经计算是否还要继续读下去，拿到的结果，使用从NioServerSocketChannel中拿到ChannelPipeline，逐个对其调用ChannelPipeline#fireChannelRead方法
+其中一个ChannelHandler为 ServerBootstrapAcceptor，重写channelRead方法，通过调用workGroup的register方法，走一遍跟NioServerSocketChannel一样的注册流程（无bind操作）
+
+RecvByteBufAllocator默认是AdaptiveRecvByteBufAllocator，用于处理每次读的数据量
+
+对于NioByteUnsafe的read方法中，还需要ByteBufAllocator，用于分配空间，来存储从socket读取到的内容
+
+
+对于NioServerSocketChannel，是注册到BossGroup的EventLoop来管理，这个EventLoop

@@ -70,7 +70,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
-            allocHandle.reset(config);
+            allocHandle.reset(config); // 初始化每次读的最大数和当前已读的总数
 
             boolean closed = false;
             Throwable exception = null;
@@ -87,7 +87,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                         }
                         // 读了多少了
                         allocHandle.incMessagesRead(localRead);
-                    } while (continueReading(allocHandle)); // 是否还继续读，读完了或者没读完但是读的此数够了，也不读了
+                    } while (continueReading(allocHandle)); // 是否还继续读，读完了或者没读完但是读的此数够了，也不读了，避免EventLoop耗费过多的时间在这一个处理上，阻塞了其他任务的处理
                 } catch (Throwable t) {
                     exception = t;
                 }

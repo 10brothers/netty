@@ -273,10 +273,10 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
             selfFiredChannelRead = true;
             CodecOutputList out = CodecOutputList.newInstance();
             try {
-                first = cumulation == null;
+                first = cumulation == null; // 是否上次完整读后的第一次读
                 cumulation = cumulator.cumulate(ctx.alloc(),
                         first ? Unpooled.EMPTY_BUFFER : cumulation, (ByteBuf) msg);
-                callDecode(ctx, cumulation, out);
+                callDecode(ctx, cumulation, out); // 做一个累计
             } catch (DecoderException e) {
                 throw e;
             } catch (Exception e) {
